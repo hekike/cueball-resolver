@@ -46,7 +46,7 @@ class Resolver extends FSM {
     assert.isNumber(defaultPort, 'options.defaultPort')
     assert.isArray(backends, 'options.backends')
 
-    this.resetBackends(backends)
+    this._loadBackends(backends)
   }
 
   /**
@@ -72,6 +72,21 @@ class Resolver extends FSM {
 
   /**
    * Adds a new backend
+   * @method _addBackend
+   * @private
+   * @param {Backend|Object} backend
+   * @param {String} backend.address
+   * @param {Number} [backend.port]
+   * @memberof Resolver
+   */
+  _addBackend (backend) {
+    backend = this._createBackend(backend)
+    this._backends.set(backend.key, backend)
+    return backend
+  }
+
+  /**
+   * Adds a new backend
    * @method addBackend
    * @public
    * @param {Backend|Object} backend
@@ -80,10 +95,24 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   addBackend (backend) {
-    backend = this._createBackend(backend)
-
-    this._backends.set(backend.key, backend)
+    backend = this._addBackend(backend)
     this.emit(EVENT.added, backend.key, backend.service)
+    this.emit(EVENT.updated)
+  }
+
+  /**
+   * Removes a backend
+   * @method _removeBackend
+   * @private
+   * @param {Backend|Object} backend
+   * @param {String} backend.address
+   * @param {Number} [backend.port]
+   * @memberof Resolver
+   */
+  _removeBackend (backend) {
+    backend = this._createBackend(backend)
+    this._backends.delete(backend.key)
+    return backend
   }
 
   /**
@@ -96,25 +125,20 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   removeBackend (backend) {
-    backend = this._createBackend(backend)
+    backend = this._removeBackend(backend)
 
-    this._backends.delete(backend.key)
     this.emit(EVENT.removed, backend.key, backend.service)
+    this.emit(EVENT.updated)
   }
 
   /**
-   * Clears backends and loads with new one
-   * @method resetBackends
-   * @public
+   * Load backends
+   * @method _loadBackends
+   * @private
    * @param {Array.<Backend>} [opts.backends=[]]
    * @memberof Resolver
    */
-  resetBackends (backends = []) {
-    // Clear backends
-    this._backends.forEach((backend) =>
-      this.removeBackend(backend))
-
-    // Init with backends
+  _loadBackends (backends = []) {
     backends.forEach((backend, i) => {
       // Validation
       if (!(backend instanceof Backend)) {
@@ -126,10 +150,32 @@ class Resolver extends FSM {
         }
       }
 
-      backend = this._createBackend(backend)
-
-      this.addBackend(backend)
+      this._addBackend(backend)
     })
+  }
+
+  /**
+   * Clears backends and loads with new one
+   * @method resetBackends
+   * @public
+   * @param {Array.<Backend>} [opts.backends=[]]
+   * @memberof Resolver
+   */
+  resetBackends (backends = []) {
+    assert.isOk(
+      this.isInState(STATE.running),
+      'Resolver must be running for reset'
+    )
+
+    // Clear backends
+    this._backends.forEach((backend) =>
+      this.removeBackend(backend))
+
+    this._loadBackends(backends)
+
+    // Do not sync in non running state
+    this._backends.forEach((backend) => this.addBackend(backend))
+    this.emit(EVENT.updated)
   }
 
   /**
