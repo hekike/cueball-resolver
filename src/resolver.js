@@ -46,22 +46,7 @@ class Resolver extends FSM {
     assert.isNumber(defaultPort, 'options.defaultPort')
     assert.isArray(backends, 'options.backends')
 
-    // Init with backends
-    backends.forEach((backend, i) => {
-      // Validation
-      if (!(backend instanceof Backend)) {
-        assert.isObject(backend, `options.backends[${i}]`)
-        assert.isString(backend.address, `options.backends[${i}].address`)
-
-        if (backend.port !== undefined && backend.port !== null) {
-          assert.isNumber(backend.port, `options.backends[${i}].port`)
-        }
-      }
-
-      backend = this._createBackend(backend)
-
-      this.addBackend(backend)
-    })
+    this.resetBackends(backends)
   }
 
   /**
@@ -115,6 +100,36 @@ class Resolver extends FSM {
 
     this._backends.delete(backend.key)
     this.emit(EVENT.removed, backend.key, backend.service)
+  }
+
+  /**
+   * Clears backends and loads with new one
+   * @method resetBackends
+   * @public
+   * @param {Array.<Backend>} [opts.backends=[]]
+   * @memberof Resolver
+   */
+  resetBackends (backends = []) {
+    // Clear backends
+    this._backends.forEach((backend) =>
+      this.removeBackend(backend))
+
+    // Init with backends
+    backends.forEach((backend, i) => {
+      // Validation
+      if (!(backend instanceof Backend)) {
+        assert.isObject(backend, `options.backends[${i}]`)
+        assert.isString(backend.address, `options.backends[${i}].address`)
+
+        if (backend.port !== undefined && backend.port !== null) {
+          assert.isNumber(backend.port, `options.backends[${i}].port`)
+        }
+      }
+
+      backend = this._createBackend(backend)
+
+      this.addBackend(backend)
+    })
   }
 
   /**
