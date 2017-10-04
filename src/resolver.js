@@ -42,11 +42,16 @@ class Resolver extends FSM {
     this.defaultPort = defaultPort
     this._backends = new Map()
     this._lastError = undefined
+    this._queue = []
 
     assert.isNumber(defaultPort, 'options.defaultPort')
     assert.isArray(backends, 'options.backends')
 
     this._loadBackends(backends)
+
+    this.on('error', (err) => {
+      this._lastError = err
+    })
   }
 
   /**
@@ -72,46 +77,29 @@ class Resolver extends FSM {
 
   /**
    * Adds a new backend
-   * @method _addBackend
-   * @private
-   * @param {Backend|Object} backend
-   * @param {String} backend.address
-   * @param {Number} [backend.port]
-   * @memberof Resolver
-   */
-  _addBackend (backend) {
-    backend = this._createBackend(backend)
-    this._backends.set(backend.key, backend)
-    return backend
-  }
-
-  /**
-   * Adds a new backend
    * @method addBackend
    * @public
    * @param {Backend|Object} backend
    * @param {String} backend.address
    * @param {Number} [backend.port]
+   * @returns {Backend}
    * @memberof Resolver
    */
   addBackend (backend) {
-    backend = this._addBackend(backend)
-    this.emit(EVENT.added, backend.key, backend.service)
-    this.emit(EVENT.updated)
-  }
-
-  /**
-   * Removes a backend
-   * @method _removeBackend
-   * @private
-   * @param {Backend|Object} backend
-   * @param {String} backend.address
-   * @param {Number} [backend.port]
-   * @memberof Resolver
-   */
-  _removeBackend (backend) {
     backend = this._createBackend(backend)
-    this._backends.delete(backend.key)
+
+    if (this.isInState(STATE.running)) {
+      this._backends.set(backend.key, backend)
+      this.emit(EVENT.added, backend.key, backend.service)
+      this.emit(EVENT.updated)
+    } else {
+      this._queue.push({
+        key: backend.key,
+        operation: 'add',
+        backend
+      })
+    }
+
     return backend
   }
 
@@ -122,13 +110,25 @@ class Resolver extends FSM {
    * @param {Backend|Object} backend
    * @param {String} backend.address
    * @param {Number} [backend.port]
+   * @returns {Backend}
    * @memberof Resolver
    */
   removeBackend (backend) {
-    backend = this._removeBackend(backend)
+    backend = this._createBackend(backend)
 
-    this.emit(EVENT.removed, backend.key, backend.service)
-    this.emit(EVENT.updated)
+    if (this.isInState(STATE.running)) {
+      this._backends.delete(backend.key)
+      this.emit(EVENT.removed, backend.key, backend.service)
+      this.emit(EVENT.updated)
+    } else {
+      this._queue.push({
+        key: backend.key,
+        operation: 'remove',
+        backend
+      })
+    }
+
+    return backend
   }
 
   /**
@@ -150,7 +150,7 @@ class Resolver extends FSM {
         }
       }
 
-      this._addBackend(backend)
+      this.addBackend(backend)
     })
   }
 
@@ -162,20 +162,18 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   resetBackends (backends = []) {
-    assert.isOk(
-      this.isInState(STATE.running),
-      'Resolver must be running for reset'
-    )
+    this._queue = []
 
-    // Clear backends
-    this._backends.forEach((backend) =>
-      this.removeBackend(backend))
+    setImmediate(() => {
+      // Clear backends
+      this._backends.forEach((backend) =>
+        this.removeBackend(backend))
 
-    this._loadBackends(backends)
+      this._loadBackends(backends)
 
-    // Do not sync in non running state
-    this._backends.forEach((backend) => this.addBackend(backend))
-    this.emit(EVENT.updated)
+      // Do not sync in non running state
+      this._backends.forEach((backend) => this.addBackend(backend))
+    })
   }
 
   /**
@@ -290,6 +288,16 @@ class Resolver extends FSM {
    */
   // eslint-disable-next-line  camelcase
   state_running (stateHandle) {
+    while (this._queue.length) {
+      const item = this._queue.shift()
+
+      if (item.operation === 'add') {
+        this.addBackend(item.backend)
+      } else if (item.operation === 'remove') {
+        this.removeBackend(item.backend)
+      }
+    }
+
     stateHandle.on(this, EVENT.stopAsserted, () => {
       stateHandle.gotoState(STATE.stopping)
     })

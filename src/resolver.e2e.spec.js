@@ -81,42 +81,38 @@ describe('Resolver e2e', () => {
   })
 
   it('should timeout without backend', (done) => {
-    setImmediate(() => {
-      assert.equal(resolver.getState(), 'running')
+    resolver.resetBackends()
 
-      resolver.resetBackends()
+    // FIXME: detect error in client
+    setTimeout(() => {
+      done()
+    }, 100)
 
-      setTimeout(() => {
+    client.get('/test', (err) => {
+      if (err) {
+        assert.equal(err.message, 'error')
         done()
-      }, 100)
+        return
+      }
 
-      client.get('/test', (err) => {
-        if (err) {
-          assert.equal(err.message, 'error')
-          done()
-          return
-        }
-
-        done(new Error('Unhandled exception'))
-      })
+      done(new Error('Unhandled exception'))
     })
   })
 
   it('should find new backend', (done) => {
-    setImmediate(() => {
-      assert.equal(resolver.getState(), 'running')
+    resolver.removeBackend({
+      address: '127.0.0.1',
+      port: 1234
+    })
+    resolver.addBackend({
+      address: '127.0.0.1',
+      port: 1234
+    })
 
-      resolver.resetBackends()
-      resolver.addBackend({
-        address: '127.0.0.1',
-        port: 1234
-      })
-
-      client.get('/test', (err, req, res, data) => {
-        assert.isNotOk(err)
-        assert.equal(data, 'test response')
-        done(err)
-      })
+    client.get('/test', (err, req, res, data) => {
+      assert.isNotOk(err)
+      assert.equal(data, 'test response')
+      done(err)
     })
   })
 })

@@ -5,7 +5,16 @@ const net = require('net')
 const { assert } = require('chai')
 const ipaddr = require('ipaddr.js')
 
+/**
+ * @class Backend
+ */
 class Backend {
+  /**
+   * @static
+   * @param {Backend} backend - Backend instance
+   * @returns  {String}
+   * @memberof Backend
+   */
   static getKey (backend) {
     if (backend.key) {
       return backend.key
@@ -30,6 +39,11 @@ class Backend {
     return hash.digest('base64')
   }
 
+  /**
+   * Creates an instance of Backend.
+   * @param {Object} [{ address, port }={}] opts - Options
+   * @memberof Backend
+   */
   constructor ({ address, port } = {}) {
     assert.isString(address, 'address')
     assert.isOk(
