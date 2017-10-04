@@ -19,12 +19,18 @@ const EVENT = {
   updated: 'updated'
 }
 
+/**
+ * Resolver for cueball
+ * See: https://joyent.github.io/node-cueball/#resolver
+ * @class Resolver
+ * @extends {FSM}
+ */
 class Resolver extends FSM {
   /**
    * Creates an instance of Resolver.
    * @param {Object} [opts]
-   * @param {Array.<Backend>} [opts.backends]
-   * @param {Number} [opts.defaultPort]
+   * @param {Array.<Backend>} [opts.backends=[]]
+   * @param {Number} [opts.defaultPort=80]
    * @memberof Resolver
    */
   constructor ({
@@ -42,36 +48,54 @@ class Resolver extends FSM {
 
     // Init with backends
     backends.forEach((backend, i) => {
+      // Validation
       if (!(backend instanceof Backend)) {
         assert.isObject(backend, `options.backends[${i}]`)
         assert.isString(backend.address, `options.backends[${i}].address`)
 
-        if (backend.port === undefined || backend.port === null) {
-          backend.port = this.defaultPort
+        if (backend.port !== undefined && backend.port !== null) {
+          assert.isNumber(backend.port, `options.backends[${i}].port`)
         }
-
-        assert.isNumber(backend.port, `options.backends[${i}].port`)
       }
+
+      backend = this._createBackend(backend)
 
       this.addBackend(backend)
     })
   }
 
   /**
-   * Adds a new backend
-   * @method addBackend
+   * Create backend with default port
+   * @method _createBackend
+   * @private
    * @param {Backend|Object} backend
    * @param {String} backend.address
    * @param {Number} [backend.port]
+   * @returns {Backend} backend
    * @memberof Resolver
    */
-  addBackend (backend) {
+  _createBackend (backend) {
     if (!(backend instanceof Backend)) {
       if (backend.port === undefined || backend.port === null) {
         backend.port = this.defaultPort
       }
       backend = new Backend(backend)
     }
+
+    return backend
+  }
+
+  /**
+   * Adds a new backend
+   * @method addBackend
+   * @public
+   * @param {Backend|Object} backend
+   * @param {String} backend.address
+   * @param {Number} [backend.port]
+   * @memberof Resolver
+   */
+  addBackend (backend) {
+    backend = this._createBackend(backend)
 
     this._backends.set(backend.key, backend)
     this.emit(EVENT.added, backend.key, backend.service)
@@ -80,18 +104,14 @@ class Resolver extends FSM {
   /**
    * Removes a backend
    * @method removeBackend
+   * @public
    * @param {Backend|Object} backend
    * @param {String} backend.address
    * @param {Number} [backend.port]
    * @memberof Resolver
    */
   removeBackend (backend) {
-    if (!(backend instanceof Backend)) {
-      if (backend.port === undefined || backend.port === null) {
-        backend.port = this.defaultPort
-      }
-      backend = new Backend(backend)
-    }
+    backend = this._createBackend(backend)
 
     this._backends.delete(backend.key)
     this.emit(EVENT.removed, backend.key, backend.service)
@@ -100,6 +120,7 @@ class Resolver extends FSM {
   /**
    * Removes a backend
    * @method list
+   * @public
    * @returns {Array.<Backend>}
    * @memberof Resolver
    */
@@ -109,6 +130,12 @@ class Resolver extends FSM {
 
   /* *************** cueball required *************** */
 
+  /**
+   * Start resolver
+   * @method start
+   * @public
+   * @memberof Resolver
+   */
   start () {
     assert.isOk(
       this.isInState(STATE.stopped),
@@ -124,6 +151,12 @@ class Resolver extends FSM {
     })
   }
 
+  /**
+   * Stop resolver
+   * @method stop
+   * @public
+   * @memberof Resolver
+   */
   stop () {
     assert.isNotOk(
       this.isInState(STATE.stopped),
@@ -133,16 +166,39 @@ class Resolver extends FSM {
     this.emit(EVENT.stopAsserted)
   }
 
+  /**
+   * Get last error
+   * @method getLastError
+   * @public
+   * @returns {Error|undefined} lastError
+   * @memberof Resolver
+   */
   getLastError () {
     return this._lastError
   }
 
   /* *************** FSM required *************** */
+
+  /**
+   * Number of backends
+   * @method count
+   * @public
+   * @returns {Number} backendsCount
+   * @memberof Resolver
+   */
   count () {
     return this._backends.size
   }
 
   /* *************** STATES *************** */
+
+  /**
+   * From "stopped" state it goes to "starting" via start() call
+   * @method state_stopped
+   * @private
+   * @param {FSMStateHandle} stateHandle
+   * @memberof Resolver
+   */
   // eslint-disable-next-line  camelcase
   state_stopped (stateHandle) {
     stateHandle.on(this, EVENT.startAsserted, () => {
@@ -150,6 +206,13 @@ class Resolver extends FSM {
     })
   }
 
+  /**
+   * From "starting" state it goes to "running" via "updated" event
+   * @method state_starting
+   * @private
+   * @param {FSMStateHandle} stateHandle
+   * @memberof Resolver
+   */
   // eslint-disable-next-line  camelcase
   state_starting (stateHandle) {
     stateHandle.on(this, EVENT.updated, () => {
@@ -157,6 +220,13 @@ class Resolver extends FSM {
     })
   }
 
+  /**
+   * From "running" state it goes to "stopping" via stop() call
+   * @method state_running
+   * @private
+   * @param {FSMStateHandle} stateHandle
+   * @memberof Resolver
+   */
   // eslint-disable-next-line  camelcase
   state_running (stateHandle) {
     stateHandle.on(this, EVENT.stopAsserted, () => {
@@ -164,6 +234,13 @@ class Resolver extends FSM {
     })
   }
 
+  /**
+   * From "stopping" state it goes to "stopped" immediatly
+   * @method state_stopping
+   * @private
+   * @param {FSMStateHandle} stateHandle
+   * @memberof Resolver
+   */
   // eslint-disable-next-line  camelcase,class-methods-use-this
   state_stopping (stateHandle) {
     stateHandle.immediate(() => {
@@ -171,6 +248,14 @@ class Resolver extends FSM {
     })
   }
 
+  /**
+   * From "failed" state it goes to "running" via "updated" event
+   * or to "stopping" via stop() call
+   * @method state_failed
+   * @private
+   * @param {FSMStateHandle} stateHandle
+   * @memberof Resolver
+   */
   // eslint-disable-next-line  camelcase
   state_failed (stateHandle) {
     stateHandle.on(this, EVENT.updated, () => {
