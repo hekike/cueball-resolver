@@ -1,5 +1,5 @@
 {
-  "name": "cueball-resolver-eureka",
+  "name": "cueball-resolver",
   "version": "0.0.0",
   "description": "Cueball resolver for Euroeka service discovery",
   "main": "index.js",
@@ -10,14 +10,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hekike/cueball-resolver-eureka.git"
+    "url": "git+https://github.com/hekike/cueball-resolver.git"
   },
   "author": "Peter Marton",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hekike/cueball-resolver-eureka/issues"
+    "url": "https://github.com/hekike/cueball-resolver/issues"
   },
-  "homepage": "https://github.com/hekike/cueball-resolver-eureka#readme",
+  "homepage": "https://github.com/hekike/cueball-resolver#readme",
   "dependencies": {
     "chai": "4.1.2",
     "ipaddr.js": "1.5.2",
