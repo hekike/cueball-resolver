@@ -18,11 +18,11 @@ See for the complete API: https://joyent.github.io/node-cueball/#resolver
 ### new Resolver(options)
 
 - `options` -- Object, with keys:
-  * `defaultPort` -- optional Number (defaults to 80), fallback port to use for backends
+  - `defaultPort` -- optional Number (defaults to 80), fallback port to use for backends
     that only have an `address` property
-  * `backends` -- Array of objects, each having properties (optional, defaults to []):
-    ** `address` -- String, an IP address to emit as a backend
-    ** `port` -- Number (optional, defaults to 80), a port number
+  - `backends` -- Array of objects, each having properties (optional, defaults to []):
+    - `address` -- String, an IP address to emit as a backend
+    - `port` -- Number (optional, defaults to 80), a port number
         for this backend
 
 ### addBackend(backend)
@@ -30,8 +30,8 @@ See for the complete API: https://joyent.github.io/node-cueball/#resolver
 Adds a new backend.
 
 -  `backend` -- object
-  * `address` -- String, an IP address to emit as a backend
-  * `port` -- Number (optional, defaults to 80), a port number
+  - `address` -- String, an IP address to emit as a backend
+  - `port` -- Number (optional, defaults to 80), a port number
       for this backend
 
 Returns with the backend.
@@ -41,8 +41,8 @@ Returns with the backend.
 Removes a backend.
 
 -  `backend` -- object
-  * `address` -- String, an IP address to emit as a backend
-  * `port` -- Number (optional, defaults to 80), a port number
+  - `address` -- String, an IP address to emit as a backend
+  - `port` -- Number (optional, defaults to 80), a port number
       for this backend
 
 Returns with the backend.
@@ -52,8 +52,8 @@ Returns with the backend.
 Clears all backends and add news if provided.
 
 - `backends` -- Array of objects, each having properties (optional, defaults to []):
-  * `address` -- String, an IP address to emit as a backend
-  * `port` -- Number (optional, defaults to 80), a port number
+  - `address` -- String, an IP address to emit as a backend
+  - `port` -- Number (optional, defaults to 80), a port number
       for this backend
 
 ## How to use
