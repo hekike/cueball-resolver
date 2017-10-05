@@ -29,7 +29,7 @@ See for the complete API: https://joyent.github.io/node-cueball/#resolver
 
 Adds a new backend.
 
--  `backend` -- object
+- `backend` -- object:
   - `address` -- String, an IP address to emit as a backend
   - `port` -- Number (optional, defaults to 80), a port number
       for this backend
@@ -40,7 +40,7 @@ Returns with the backend.
 
 Removes a backend.
 
--  `backend` -- object
+- `backend` -- object:
   - `address` -- String, an IP address to emit as a backend
   - `port` -- Number (optional, defaults to 80), a port number
       for this backend
