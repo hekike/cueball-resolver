@@ -1,5 +1,7 @@
 # cueball-resolver
 
+[![Build Status](https://travis-ci.org/hekike/cueball-resolver.svg?branch=master)](https://travis-ci.org/hekike/cueball-resolver)  
+
 Custom Resolver for https://joyent.github.io/node-cueball  
 Static IP resolver with add and remove interface.  
 
