@@ -15,8 +15,7 @@ const EVENT = {
   startAsserted: 'startAsserted',
   stopAsserted: 'stopAsserted',
   added: 'added',
-  removed: 'removed',
-  updated: 'updated'
+  removed: 'removed'
 }
 
 /**
@@ -55,27 +54,6 @@ class Resolver extends FSM {
   }
 
   /**
-   * Create backend with default port
-   * @method _createBackend
-   * @private
-   * @param {Backend|Object} backend
-   * @param {String} backend.address
-   * @param {Number} [backend.port]
-   * @returns {Backend} backend
-   * @memberof Resolver
-   */
-  _createBackend (backend) {
-    if (!(backend instanceof Backend)) {
-      if (backend.port === undefined || backend.port === null) {
-        backend.port = this.defaultPort
-      }
-      backend = new Backend(backend)
-    }
-
-    return backend
-  }
-
-  /**
    * Adds a new backend
    * @method addBackend
    * @public
@@ -91,7 +69,6 @@ class Resolver extends FSM {
     if (this.isInState(STATE.running)) {
       this._backends.set(backend.key, backend)
       this.emit(EVENT.added, backend.key, backend.service)
-      this.emit(EVENT.updated)
     } else {
       this._queue.push({
         key: backend.key,
@@ -119,7 +96,6 @@ class Resolver extends FSM {
     if (this.isInState(STATE.running)) {
       this._backends.delete(backend.key)
       this.emit(EVENT.removed, backend.key, backend.service)
-      this.emit(EVENT.updated)
     } else {
       this._queue.push({
         key: backend.key,
@@ -129,29 +105,6 @@ class Resolver extends FSM {
     }
 
     return backend
-  }
-
-  /**
-   * Load backends
-   * @method _loadBackends
-   * @private
-   * @param {Array.<Backend>} [opts.backends=[]]
-   * @memberof Resolver
-   */
-  _loadBackends (backends = []) {
-    backends.forEach((backend, i) => {
-      // Validation
-      if (!(backend instanceof Backend)) {
-        assert.isObject(backend, `options.backends[${i}]`)
-        assert.isString(backend.address, `options.backends[${i}].address`)
-
-        if (backend.port !== undefined && backend.port !== null) {
-          assert.isNumber(backend.port, `options.backends[${i}].port`)
-        }
-      }
-
-      this.addBackend(backend)
-    })
   }
 
   /**
@@ -187,6 +140,69 @@ class Resolver extends FSM {
     return Array.from(this._backends.values())
   }
 
+  /**
+   * Load backends
+   * @method _loadBackends
+   * @private
+   * @param {Array.<Backend>} [opts.backends=[]]
+   * @memberof Resolver
+   */
+  _loadBackends (backends = []) {
+    backends.forEach((backend, i) => {
+      // Validation
+      if (!(backend instanceof Backend)) {
+        assert.isObject(backend, `options.backends[${i}]`)
+        assert.isString(backend.address, `options.backends[${i}].address`)
+
+        if (backend.port !== undefined && backend.port !== null) {
+          assert.isNumber(backend.port, `options.backends[${i}].port`)
+        }
+      }
+
+      this.addBackend(backend)
+    })
+  }
+
+  /**
+   * Create backend with default port
+   * @method _createBackend
+   * @private
+   * @param {Backend|Object} backend
+   * @param {String} backend.address
+   * @param {Number} [backend.port]
+   * @returns {Backend} backend
+   * @memberof Resolver
+   */
+  _createBackend (backend) {
+    if (!(backend instanceof Backend)) {
+      if (backend.port === undefined || backend.port === null) {
+        backend.port = this.defaultPort
+      }
+      backend = new Backend(backend)
+    }
+
+    return backend
+  }
+
+  /**
+   * @method _processQueue
+   * @memberof Resolver
+   */
+  _processQueue () {
+    // Process queue
+    setImmediate(() => {
+      while (this._queue.length) {
+        const item = this._queue.shift()
+
+        if (item.operation === 'add') {
+          this.addBackend(item.backend)
+        } else if (item.operation === 'remove') {
+          this.removeBackend(item.backend)
+        }
+      }
+    })
+  }
+
   /* *************** cueball required *************** */
 
   /**
@@ -206,7 +222,6 @@ class Resolver extends FSM {
     // Add backends
     setImmediate(() => {
       this._backends.forEach((backend) => this.addBackend(backend))
-      this.emit(EVENT.updated)
     })
   }
 
@@ -266,15 +281,15 @@ class Resolver extends FSM {
   }
 
   /**
-   * From "starting" state it goes to "running" via "updated" event
+   * From "starting" state it goes to "running" immediately
    * @method state_starting
    * @private
    * @param {FSMStateHandle} stateHandle
    * @memberof Resolver
    */
-  // eslint-disable-next-line  camelcase
+  // eslint-disable-next-line camelcase,class-methods-use-this
   state_starting (stateHandle) {
-    stateHandle.on(this, EVENT.updated, () => {
+    stateHandle.immediate(() => {
       stateHandle.gotoState(STATE.running)
     })
   }
@@ -286,17 +301,9 @@ class Resolver extends FSM {
    * @param {FSMStateHandle} stateHandle
    * @memberof Resolver
    */
-  // eslint-disable-next-line  camelcase
+  // eslint-disable-next-line camelcase
   state_running (stateHandle) {
-    while (this._queue.length) {
-      const item = this._queue.shift()
-
-      if (item.operation === 'add') {
-        this.addBackend(item.backend)
-      } else if (item.operation === 'remove') {
-        this.removeBackend(item.backend)
-      }
-    }
+    this._processQueue()
 
     stateHandle.on(this, EVENT.stopAsserted, () => {
       stateHandle.gotoState(STATE.stopping)
@@ -310,7 +317,7 @@ class Resolver extends FSM {
    * @param {FSMStateHandle} stateHandle
    * @memberof Resolver
    */
-  // eslint-disable-next-line  camelcase,class-methods-use-this
+  // eslint-disable-next-line camelcase,class-methods-use-this
   state_stopping (stateHandle) {
     stateHandle.immediate(() => {
       stateHandle.gotoState(STATE.stopped)
@@ -318,16 +325,16 @@ class Resolver extends FSM {
   }
 
   /**
-   * From "failed" state it goes to "running" via "updated" event
+   * From "failed" state it goes to "running" via "added" event
    * or to "stopping" via stop() call
    * @method state_failed
    * @private
    * @param {FSMStateHandle} stateHandle
    * @memberof Resolver
    */
-  // eslint-disable-next-line  camelcase
+  // eslint-disable-next-line camelcase
   state_failed (stateHandle) {
-    stateHandle.on(this, EVENT.updated, () => {
+    stateHandle.on(this, EVENT.added, () => {
       stateHandle.gotoState(STATE.running)
     })
     stateHandle.on(this, EVENT.stopAsserted, () => {
