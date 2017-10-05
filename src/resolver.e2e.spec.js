@@ -88,15 +88,7 @@ describe('Resolver e2e', () => {
       done()
     }, 100)
 
-    client.get('/test', (err) => {
-      if (err) {
-        assert.equal(err.message, 'error')
-        done()
-        return
-      }
-
-      done(new Error('Unhandled exception'))
-    })
+    client.get('/test')
   })
 
   it('should find new backend', (done) => {

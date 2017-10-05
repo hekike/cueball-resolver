@@ -41,5 +41,12 @@
   "pre-commit": [
     "lint",
     "test"
-  ]
+  ],
+  "nyc": {
+    "exclude": [
+      "**/*.spec.js",
+      "test/setup.js",
+      "build"
+    ]
+  }
 }

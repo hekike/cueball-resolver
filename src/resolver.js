@@ -21,6 +21,18 @@ const EVENT = {
 /**
  * Resolver for cueball
  * See: https://joyent.github.io/node-cueball/#resolver
+ * Lifecycle:
+ *                   .start()          error
+ *         +-------+       +--------+       +------+
+ * init -> |stopped| +---> |starting| +---> |failed|
+ *         +---+---+       +---+----+       +------+
+ *             ^               |               +
+ *             |               | ok            |
+ *             |               v               |
+ *         +---+----+      +---+---+           |
+ *         |stopping| <--+ |running|  <--------+
+ *         +--------+      +-------+       retry success
+ *                  .stop()
  * @class Resolver
  * @extends {FSM}
  */
@@ -123,9 +135,6 @@ class Resolver extends FSM {
         this.removeBackend(backend))
 
       this._loadBackends(backends)
-
-      // Do not sync in non running state
-      this._backends.forEach((backend) => this.addBackend(backend))
     })
   }
 
@@ -218,11 +227,6 @@ class Resolver extends FSM {
     )
 
     this.emit(EVENT.startAsserted)
-
-    // Add backends
-    setImmediate(() => {
-      this._backends.forEach((backend) => this.addBackend(backend))
-    })
   }
 
   /**

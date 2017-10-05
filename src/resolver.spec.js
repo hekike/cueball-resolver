@@ -61,6 +61,35 @@ describe('Resolver', () => {
     }, /options.backends\[1\].port/)
   })
 
+  describe('#lifecycle', () => {
+    it('should have all states', (done) => {
+      const resolver = new Resolver()
+      let counter = 0
+
+      resolver.on('stateChanged', (state) => {
+        // Initial state
+        if (state === 'stopped' && counter === 0) {
+          resolver.start()
+          return
+        }
+
+        // Lifecycle
+        if (state === 'running') {
+          resolver.stop()
+          counter += 1
+        } else if (state === 'starting') {
+          counter += 1
+        } else if (state === 'stopping') {
+          counter += 1
+        } else if (state === 'stopped') {
+          counter += 1
+          assert.equal(counter, 4)
+          done()
+        }
+      })
+    })
+  })
+
   describe('#start', () => {
     it('should start without backends', (done) => {
       const resolver = new Resolver()
@@ -140,31 +169,11 @@ describe('Resolver', () => {
   })
 
   describe('#stop', () => {
-    it('should stop', (done) => {
-      const resolver = new Resolver()
-      let counter = 0
-
-      resolver.on('stateChanged', (state) => {
-        // Initial state
-        if (state === 'stopped' && counter === 0) {
-          resolver.start()
-          return
-        }
-
-        // Lifecycle
-        if (state === 'running') {
-          resolver.stop()
-          counter += 1
-        } else if (state === 'starting') {
-          counter += 1
-        } else if (state === 'stopping') {
-          counter += 1
-        } else if (state === 'stopped') {
-          counter += 1
-          assert.equal(counter, 4)
-          done()
-        }
-      })
+    it('should call start first', () => {
+      assert.throws(() => {
+        const resolver = new Resolver()
+        resolver.stop()
+      }, /cannot call stop\(\) again without calling start\(\)/)
     })
   })
 
@@ -323,6 +332,44 @@ describe('Resolver', () => {
       resolver.emit('error', err1)
       resolver.emit('error', err2)
       assert.deepEqual(err2, resolver.getLastError())
+    })
+  })
+
+  describe('events', () => {
+    it('should emit "added" when backend is added', (done) => {
+      const resolver = new Resolver()
+      const backend = resolver.addBackend({
+        address: '127.0.0.1'
+      })
+      resolver.start()
+
+      resolver.on('added', (evKey, evBackend) => {
+        assert.isString(evKey)
+        assert.equal(evKey, backend.key)
+        assert.deepEqual(evBackend, {
+          name: '127.0.0.1:80',
+          address: '127.0.0.1',
+          port: 80
+        })
+        done()
+      })
+    })
+
+    it('should emit "removed" when backend is removed', (done) => {
+      const resolver = new Resolver()
+      const backend = resolver.addBackend({
+        address: '127.0.0.1'
+      })
+      resolver.start()
+      resolver.removeBackend({
+        address: '127.0.0.1'
+      })
+
+      resolver.on('removed', (evKey) => {
+        assert.isString(evKey)
+        assert.equal(evKey, backend.key)
+        done()
+      })
     })
   })
 })
