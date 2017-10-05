@@ -45,7 +45,7 @@ describe('Resolver e2e', () => {
       backends: [
         {
           address: '127.0.0.1',
-          port: 1234
+          port
         }
       ]
     })
@@ -59,7 +59,6 @@ describe('Resolver e2e', () => {
     server = restify.createServer()
     server.get('/test', (req, res, next) => {
       res.send('test response')
-      server.lastVal = req.params.val
       next()
     })
     server.listen(port, done)
@@ -94,11 +93,11 @@ describe('Resolver e2e', () => {
   it('should find new backend', (done) => {
     resolver.removeBackend({
       address: '127.0.0.1',
-      port: 1234
+      port
     })
     resolver.addBackend({
       address: '127.0.0.1',
-      port: 1234
+      port
     })
 
     client.get('/test', (err, req, res, data) => {
