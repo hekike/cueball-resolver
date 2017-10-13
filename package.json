@@ -1,6 +1,6 @@
 {
   "name": "cueball-resolver",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Cueball resolver for Euroeka service discovery",
   "main": "index.js",
   "scripts": {
