@@ -60,7 +60,7 @@ class Resolver extends FSM {
 
     this._loadBackends(backends)
 
-    this.on('error', (err) => {
+    this.on('error', function onError (err) {
       this._lastError = err
     })
   }
@@ -127,14 +127,16 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   resetBackends (backends = []) {
-    this._queue = []
+    const _this = this
+    _this._queue = []
 
-    setImmediate(() => {
+    setImmediate(function setImmediate () {
       // Clear backends
-      this._backends.forEach((backend) =>
-        this.removeBackend(backend))
+      _this._backends.forEach(function removeBackend (backend) {
+        return _this.removeBackend(backend)
+      })
 
-      this._loadBackends(backends)
+      _this._loadBackends(backends)
     })
   }
 
@@ -157,7 +159,9 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   _loadBackends (backends = []) {
-    backends.forEach((backend, i) => {
+    const _this = this
+
+    backends.forEach(function loadBackend (backend, i) {
       // Validation
       if (!(backend instanceof Backend)) {
         assert.isObject(backend, `options.backends[${i}]`)
@@ -168,7 +172,7 @@ class Resolver extends FSM {
         }
       }
 
-      this.addBackend(backend)
+      _this.addBackend(backend)
     })
   }
 
@@ -198,15 +202,17 @@ class Resolver extends FSM {
    * @memberof Resolver
    */
   _processQueue () {
+    const _this = this
+
     // Process queue
-    setImmediate(() => {
-      while (this._queue.length) {
-        const item = this._queue.shift()
+    setImmediate(function setImmediate () {
+      while (_this._queue.length) {
+        const item = _this._queue.shift()
 
         if (item.operation === 'add') {
-          this.addBackend(item.backend)
+          _this.addBackend(item.backend)
         } else if (item.operation === 'remove') {
-          this.removeBackend(item.backend)
+          _this.removeBackend(item.backend)
         }
       }
     })
@@ -279,7 +285,7 @@ class Resolver extends FSM {
    */
   // eslint-disable-next-line  camelcase
   state_stopped (stateHandle) {
-    stateHandle.on(this, EVENT.startAsserted, () => {
+    stateHandle.on(this, EVENT.startAsserted, function onStartAsserted () {
       stateHandle.gotoState(STATE.starting)
     })
   }
@@ -293,7 +299,7 @@ class Resolver extends FSM {
    */
   // eslint-disable-next-line camelcase,class-methods-use-this
   state_starting (stateHandle) {
-    stateHandle.immediate(() => {
+    stateHandle.immediate(function immediate () {
       stateHandle.gotoState(STATE.running)
     })
   }
@@ -309,7 +315,7 @@ class Resolver extends FSM {
   state_running (stateHandle) {
     this._processQueue()
 
-    stateHandle.on(this, EVENT.stopAsserted, () => {
+    stateHandle.on(this, EVENT.stopAsserted, function onStopAsserted () {
       stateHandle.gotoState(STATE.stopping)
     })
   }
@@ -323,7 +329,7 @@ class Resolver extends FSM {
    */
   // eslint-disable-next-line camelcase,class-methods-use-this
   state_stopping (stateHandle) {
-    stateHandle.immediate(() => {
+    stateHandle.immediate(function immediate () {
       stateHandle.gotoState(STATE.stopped)
     })
   }
@@ -338,10 +344,10 @@ class Resolver extends FSM {
    */
   // eslint-disable-next-line camelcase
   state_failed (stateHandle) {
-    stateHandle.on(this, EVENT.added, () => {
+    stateHandle.on(this, EVENT.added, function onAdded () {
       stateHandle.gotoState(STATE.running)
     })
-    stateHandle.on(this, EVENT.stopAsserted, () => {
+    stateHandle.on(this, EVENT.stopAsserted, function onStopAsserted () {
       stateHandle.gotoState(STATE.stopping)
     })
   }
